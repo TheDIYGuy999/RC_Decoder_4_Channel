@@ -1,6 +1,6 @@
 #This is an Arduino 4 chanel RC signal to DC motor converter shield
 ## Features:
-- Reads 4 standard RC servo signals and converets them to control 4 DC motors
+- Reads 4 standard RC servo signals and converts them to control 4 DC motors
 - 5V, 16MHz Pro Micro, 2.4GHz NRF24L01 radio module
 - DRV8833 H-Bridge driver, driven with my new DRV8833 Arduino library
 - Motor 1 & 2 can be used to drive a caterpillar vehicle:
