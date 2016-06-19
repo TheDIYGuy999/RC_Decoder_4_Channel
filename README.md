@@ -1,4 +1,4 @@
-#This is an Arduino 4 chanel RC signal to DC motor converter shield
+#This is an Arduino 4 channel RC signal to DC motor converter shield
 ## Features:
 - Reads 4 standard RC servo signals and converts them to control 4 DC motors
 - 5V, 16MHz Pro Micro
