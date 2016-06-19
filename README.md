@@ -4,10 +4,10 @@
 - 5V, 16MHz Pro Micro, 2.4GHz NRF24L01 radio module
 - DRV8833 H-Bridge driver, driven with my new DRV8833 Arduino library
 - Motor 1 & 2 can be used to drive a caterpillar vehicle:
-    -- direct mode (2x throttle, one for each caterpillar)
-    -- caterpillar mode means, you have one throttle and one steering input. The speed of the inner wheel can be fully reversed, up to 100%. The vehicle then turns "in place"
-    -- semi caterpillar mode. Same as above, but the speed of the inner wheel can only be reduced about 30%
-    -- two additional motor outputs for other vehicle functions
+= direct mode (2x throttle, one for each caterpillar)
+= caterpillar mode means, you have one throttle and one steering input. The speed of the inner wheel can be fully reversed, up to 100%. The vehicle then turns "in place"
+= semi caterpillar mode. Same as above, but the speed of the inner wheel can only be reduced about 30%
+= two additional motor outputs for other vehicle functions
 
 ## Usage
 
