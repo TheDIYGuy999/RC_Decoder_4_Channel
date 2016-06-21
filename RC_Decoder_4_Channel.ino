@@ -1,7 +1,7 @@
 /* 4 channel RC signal converter for caterpillar vehicles. This device converts the RC signal from a standard
   receiver and sends it to two DRV8833 DC motor drivers for the two caterpillar motors & two additional motors
 
-  Pro Micro 5V / 16MHz
+  Pro Micro 5V / 16MHz (also Pro Mini with board rev. 1.1  or above)
 
 */
 //
