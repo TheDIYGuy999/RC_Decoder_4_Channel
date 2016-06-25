@@ -3,7 +3,7 @@
 - Reads 4 standard RC servo signals and converts them to control 4 DC motors
 - Auto channel zero adjustment during setup()
 - 5V, 16MHz Pro Micro
-- DRV8833 H-Bridge driver, driven with my new DRV8833 Arduino library
+- DRV8833 H-Bridge driver, controlled with my DRV8833 Arduino library
 - Motor 1 & 2 can be used to drive a caterpillar vehicle:
 * direct mode (2x throttle, one for each caterpillar)
 * caterpillar mode means, you have one throttle and one steering input. The speed of the inner wheel can be fully reversed, up to 100%. The vehicle then turns "in place"
