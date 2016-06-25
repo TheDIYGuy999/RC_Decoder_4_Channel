@@ -1,16 +1,19 @@
 /* 4 channel RC signal converter for caterpillar vehicles. This device converts the RC signal from a standard
   receiver and sends it to two DRV8833 DC motor drivers for the two caterpillar motors & two additional motors
 
-  Pro Micro 5V / 16MHz (also Pro Mini with board rev. 1.1  or above)
+  Pro Micro 5V / 16MHz or 3.3V / 8MHz (also Pro Mini with board rev. 1.1  or above)
 
 */
 //
 // =======================================================================================================
-// LIRBARIES
+// LIRBARIES & TABS
 // =======================================================================================================
 //
 #include <PWMFrequency.h> // https://github.com/kiwisincebirth/Arduino/tree/master/libraries/PWMFrequency
 #include <DRV8833.h> // https://github.com/TheDIYGuy999/DRV8833
+
+
+#include "curves.h" // load nonlinear steering correction arrays
 
 //
 // =======================================================================================================
@@ -63,6 +66,10 @@ const int servoMin = 1100; // 1200 us = 1.2ms (1ms equals -45° in theory)
 const int servoNeutralMax = 1600; // 1600 us = 1.6ms
 const int servoNeutralMin = 1400; // 1400 us = 1.4ms
 
+// The range of the motor control signals
+const int scaleMin = -100;
+const int scaleMax = 100;
+
 // RC signal impulse duration (in microseconds)
 int pulse[5];
 
@@ -80,10 +87,10 @@ int pwm[5];
 // NOTE: The first pin must always be PWM capable, the second only, if the last parameter is set to "true"
 // SYNTAX: IN1, IN2, min. input value, max. input value, neutral position width
 // invert rotation direction, true = both pins are PWM capable
-DRV8833 Motor1(MOTOR_1_PWM, MOTOR_1_DIR, -127, 127, 20, false, false);
-DRV8833 Motor2(MOTOR_2_PWM, MOTOR_2_DIR, -127, 127, 20, false, false);
-DRV8833 Motor3(MOTOR_3_PWM, MOTOR_3_DIR, -127, 127, 20, false, false);
-DRV8833 Motor4(MOTOR_4_PWM, MOTOR_4_DIR, -127, 127, 20, false, false);
+DRV8833 Motor1(MOTOR_1_PWM, MOTOR_1_DIR, scaleMin, scaleMax, 20, false, false);
+DRV8833 Motor2(MOTOR_2_PWM, MOTOR_2_DIR, scaleMin, scaleMax, 20, false, false);
+DRV8833 Motor3(MOTOR_3_PWM, MOTOR_3_DIR, scaleMin, scaleMax, 20, false, false);
+DRV8833 Motor4(MOTOR_4_PWM, MOTOR_4_DIR, scaleMin, scaleMax, 20, false, false);
 
 //
 // =======================================================================================================
@@ -129,16 +136,25 @@ void setup() {
 //
 
 void readRC() {
-  // Read signals from RC receiver
-  pulse[1] = pulseIn(RC_IN_1, HIGH, 100000); // 1 - 2 ms pulse length = -45° to 45° servo angle
-  pulse[2] = pulseIn(RC_IN_2, HIGH, 100000); // 100000 = 0.1s timeout
-  pulse[3] = pulseIn(RC_IN_3, HIGH, 100000); // 100000 = 0.1s timeout
-  pulse[4] = pulseIn(RC_IN_4, HIGH, 100000); // 100000 = 0.1s timeout
+  static unsigned long previousMillis;
+  // NOTE: If we want to use the ramptimes in the driveMotors() function, we don't want to block the MCU
+  // every single clock cycle with thepulseIn() functions. So we only read the pulse signals every 30ms!
+  // Otherwise, the delay time is zero. This provides a more direct vehicle response.
+  if (millis() - previousMillis >= 0) { // put the desired time in ms in here
+    // Read signals from RC receiver
+    pulse[1] = pulseIn(RC_IN_1, HIGH, 100000); // 1 - 2 ms pulse length = -45° to 45° servo angle
+    pulse[2] = pulseIn(RC_IN_2, HIGH, 100000); // 100000 = 0.1s timeout
+    pulse[3] = pulseIn(RC_IN_3, HIGH, 100000); // 100000 = 0.1s timeout
+    pulse[4] = pulseIn(RC_IN_4, HIGH, 100000); // 100000 = 0.1s timeout
 
-  if (pulse[1] == 0) pulse[1] = (servoNeutralMin + servoNeutralMax)  / 2;
-  if (pulse[2] == 0) pulse[2] = (servoNeutralMin + servoNeutralMax)  / 2;
-  if (pulse[3] == 0) pulse[3] = (servoNeutralMin + servoNeutralMax)  / 2;
-  if (pulse[4] == 0) pulse[4] = (servoNeutralMin + servoNeutralMax)  / 2;
+    // center channels, if no valid impulse length was detected!
+    if (pulse[1] == 0) pulse[1] = (servoNeutralMin + servoNeutralMax)  / 2;
+    if (pulse[2] == 0) pulse[2] = (servoNeutralMin + servoNeutralMax)  / 2;
+    if (pulse[3] == 0) pulse[3] = (servoNeutralMin + servoNeutralMax)  / 2;
+    if (pulse[4] == 0) pulse[4] = (servoNeutralMin + servoNeutralMax)  / 2;
+
+    previousMillis = millis();
+  }
 }
 
 //
@@ -182,40 +198,53 @@ void channelOffset() {
 
 void driveMotorsSteering() {
 
-  int maxSteeringFactor;
-
-  // If the "Semi Caterpillar" jumper isn't present:
-  if (digitalRead(MODE_PIN2)) {
-    maxSteeringFactor = -100; // -100 = speed of the inner wheel is 100% reversible (= turning on location possible)
-  }
-  else {
-    maxSteeringFactor = 40; // 40 = speed of the inner wheel is only 60% reducible (for half caterpillar vehicles)
-  }
+  int steeringFactorLeft2;
+  int steeringFactorRight2;
 
   // Compute steering overlay:
   // The steering signal is channel 1 = pulse[1]
   // 100% = wheel spins with 100% of the requested speed forward
   // -100% = wheel spins with 100% of the requested speed backward
   if (pulse[1] <= servoNeutralMin) {
-    steeringFactorLeft = map(pulse[1], servoMin, servoNeutralMin, maxSteeringFactor, 100);
-    steeringFactorLeft = constrain(steeringFactorLeft, maxSteeringFactor, 100);
+    steeringFactorLeft = map(pulse[1], servoMin, servoNeutralMin, 0, 100);
+    steeringFactorLeft = constrain(steeringFactorLeft, 0, 100);
   }
   else {
     steeringFactorLeft = 100;
   }
 
   if (pulse[1] >= servoNeutralMax) {
-    steeringFactorRight = map(pulse[1], servoMax, servoNeutralMax, maxSteeringFactor, 100);
-    steeringFactorRight = constrain(steeringFactorRight, maxSteeringFactor, 100);
+    steeringFactorRight = map(pulse[1], servoMax, servoNeutralMax, 0, 100);
+    steeringFactorRight = constrain(steeringFactorRight, 0, 100);
   }
   else {
     steeringFactorRight = 100;
   }
 
+
+
+  // If the "Semi Caterpillar" jumper isn't present:
+  if (digitalRead(MODE_PIN2)) {
+    steeringFactorLeft2 = pgm_read_word(&curveFull[steeringFactorLeft]);
+    steeringFactorRight2 = pgm_read_word(&curveFull[steeringFactorRight]);
+  }
+  else {
+    steeringFactorLeft2 = pgm_read_word(&curveSemi[steeringFactorLeft]);
+    steeringFactorRight2 = pgm_read_word(&curveSemi[steeringFactorRight]);
+  }
+
+
+  // Nonlinear steering correction
+
+
 #ifdef DEBUG
   Serial.print(steeringFactorLeft);
   Serial.print("\t");
   Serial.print(steeringFactorRight);
+  Serial.print("\t");
+  Serial.print(steeringFactorLeft2);
+  Serial.print("\t");
+  Serial.print(steeringFactorRight2);
   Serial.print("\t");
   Serial.print(pwm[1]);
   Serial.print("\t");
@@ -224,12 +253,12 @@ void driveMotorsSteering() {
 
   // Caterpillar motors
   // The throttle signal (for both caterpillars) is channel 3 = pulse[3]
-  pwm[1] = map(pulse[3], servoMin, servoMax, 127, -127) * steeringFactorRight / 100;
-  pwm[2] = map(pulse[3], servoMin, servoMax, 127, -127) * steeringFactorLeft / 100;
+  pwm[1] = map(pulse[3], servoMin, servoMax, scaleMax, scaleMin) * steeringFactorRight2 / 100;
+  pwm[2] = map(pulse[3], servoMin, servoMax, scaleMax, scaleMin) * steeringFactorLeft2 / 100;
 
   // Additional motors
-  pwm[3] = map(pulse[2], servoMin, servoMax, 127, -127);
-  pwm[4] = map(pulse[4], servoMin, servoMax, 127, -127);
+  pwm[3] = map(pulse[2], servoMin, servoMax, scaleMax, scaleMin);
+  pwm[4] = map(pulse[4], servoMin, servoMax, scaleMax, scaleMin);
 }
 
 
@@ -241,10 +270,10 @@ void driveMotorsSteering() {
 
 void driveMotorsDirect() {
 
-  pwm[1] = map(pulse[3], servoMin, servoMax, 127, -127); // Left caterpillar
-  pwm[2] = map(pulse[2], servoMin, servoMax, 127, -127); // Right caterpillar
-  pwm[3] = map(pulse[1], servoMin, servoMax, 127, -127);
-  pwm[4] = map(pulse[4], servoMin, servoMax, 127, -127);
+  pwm[1] = map(pulse[3], servoMin, servoMax, scaleMax, scaleMin); // Left caterpillar
+  pwm[2] = map(pulse[2], servoMin, servoMax, scaleMax, scaleMin); // Right caterpillar
+  pwm[3] = map(pulse[1], servoMin, servoMax, scaleMax, scaleMin);
+  pwm[4] = map(pulse[4], servoMin, servoMax, scaleMax, scaleMin);
 }
 
 //
@@ -255,9 +284,9 @@ void driveMotorsDirect() {
 
 void driveMotors() {
 
-  // Clamp values between -127 and 127!
+  // Clamp values between scaleMin and scaleMax!
   for (int i = 1; i <= channels; i++) {
-    pwm[i] = constrain(pwm[i], -127, 127);
+    pwm[i] = constrain(pwm[i], scaleMin, scaleMax);
   }
 
   // SYNTAX: Input value, max PWM, ramptime in ms per 1 PWM increment
@@ -266,7 +295,6 @@ void driveMotors() {
   Motor2.drive(pwm[2], 255, 0, false, false); // Right cateripllar
   Motor3.drive(pwm[3], 255, 0, false, false);
   Motor4.drive(pwm[4], 255, 0, false, false);
-
 }
 
 //
