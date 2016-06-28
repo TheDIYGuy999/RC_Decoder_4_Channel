@@ -8,7 +8,7 @@
 * direct mode (2x throttle, one for each caterpillar)
 * caterpillar mode means, you have one throttle and one steering input. The speed of the inner wheel can be fully reversed, up to 100%. The vehicle then turns "in place"
 * semi caterpillar mode. Same as above, but the speed of the inner wheel can only be reduced about 30%
-* arrays for steering behaviour calibration
+* arrays for steering behaviour calibration, now with nonlinear mapping
 * two additional motor outputs for other vehicle functions
 
 ## Usage

@@ -221,21 +221,15 @@ void driveMotorsSteering() {
     steeringFactorRight = 100;
   }
 
-
-
-  // If the "Semi Caterpillar" jumper isn't present:
+  // Nonlinear steering overlay correction
   if (digitalRead(MODE_PIN2)) {
-    steeringFactorLeft2 = pgm_read_word(&curveFull[steeringFactorLeft]);
-    steeringFactorRight2 = pgm_read_word(&curveFull[steeringFactorRight]);
+    steeringFactorLeft2 = reMap(curveFull, steeringFactorLeft); // Semi caterpillar mode
+    steeringFactorRight2 = reMap(curveFull, steeringFactorRight);
   }
   else {
-    steeringFactorLeft2 = pgm_read_word(&curveSemi[steeringFactorLeft]);
-    steeringFactorRight2 = pgm_read_word(&curveSemi[steeringFactorRight]);
+    steeringFactorLeft2 = reMap(curveSemi, steeringFactorLeft); // Caterpillar mode
+    steeringFactorRight2 = reMap(curveSemi, steeringFactorRight);
   }
-
-
-  // Nonlinear steering correction
-
 
 #ifdef DEBUG
   Serial.print(steeringFactorLeft);
