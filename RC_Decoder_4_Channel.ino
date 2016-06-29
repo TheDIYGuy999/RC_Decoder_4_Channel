@@ -41,7 +41,12 @@
 
 // Motor 2 (right caterpillar)
 #define MOTOR_2_PWM 10
+#ifdef __AVR_ATmega32U4__ // Pro Micro Board
 #define MOTOR_2_DIR 16
+#else // Pro Mini Board
+#define MOTOR_2_DIR 11
+#endif
+
 
 // Motor 3
 #define MOTOR_3_PWM 5
@@ -114,10 +119,12 @@ void setup() {
   delay(1000);
 
   // Define PWM frequencies
+#ifdef __AVR_ATmega32U4__ // only allow PWM frequency change on a Pro Micro Board!
   setPWMPrescaler(MOTOR_1_PWM, 1); // 123Hz = 256,  492Hz = 64, 3936Hz = 8, 31488Hz = 1
   setPWMPrescaler(MOTOR_2_PWM, 1);
   setPWMPrescaler(MOTOR_3_PWM, 1);
   setPWMPrescaler(MOTOR_4_PWM, 1);
+#endif
 
   // Read RC data,
   readRC();
